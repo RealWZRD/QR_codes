@@ -20,7 +20,8 @@ const initialFilters: Filters = {
   shopTypes: [],
   npsMin: 0,
   npsMax: 10,
-  contactBackOnly: false,
+  contactBackStatus: 'all',
+  authStatus: 'all',
   withCommentsOnly: false,
   weekdays: [],
   ratings: [],
@@ -77,7 +78,13 @@ export function applyFilters(rows: FeedbackRow[], f: Filters): FeedbackRow[] {
     if (f.tms.length && !f.tms.includes(r.tm)) return false
     if (f.shopTypes.length && !f.shopTypes.includes(r.shopType)) return false
     if (r.nps < f.npsMin || r.nps > f.npsMax) return false
-    if (f.contactBackOnly && !r.contactBack) return false
+    if (f.contactBackStatus === 'yes' && !r.contactBack) return false
+    if (f.contactBackStatus === 'no' && r.contactBack) return false
+    if (f.authStatus !== 'all') {
+      const hasPhone = !!(r.phone && r.phone.trim())
+      if (f.authStatus === 'authorized' && !hasPhone) return false
+      if (f.authStatus === 'unauthorized' && hasPhone) return false
+    }
     if (f.withCommentsOnly && !r.comment) return false
     if (f.weekdays.length && !f.weekdays.includes(r.date.getUTCDay())) return false
     if (f.ratings.length && !f.ratings.includes(Math.round(r.rating))) return false

@@ -167,14 +167,49 @@ export default function FiltersPanel() {
             onChange={e => setFilters({ npsMax: +e.target.value || 10 })} />
         </div>
 
+        <div className="lg:col-span-2">
+          <div className="label mb-1.5">Зворотний зв'язок (Radio)</div>
+          <div className="flex gap-1 bg-ink-100 rounded-lg p-0.5 w-full">
+            {([
+              ['all', 'Усі'],
+              ['yes', 'Тільки «Так»'],
+              ['no', 'Тільки «Не зазначено»']
+            ] as const).map(([k, l]) => (
+              <button
+                key={k}
+                onClick={() => setFilters({ contactBackStatus: k })}
+                className={`flex-1 px-2 py-1.5 text-xs rounded-md transition-colors ${
+                  filters.contactBackStatus === k
+                    ? 'bg-white text-ink-900 shadow-card'
+                    : 'text-ink-500 hover:text-ink-900'
+                }`}
+              >{l}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="label mb-1.5">Авторизація (телефон)</div>
+          <div className="flex gap-1 bg-ink-100 rounded-lg p-0.5 w-full">
+            {([
+              ['all', 'Усі'],
+              ['authorized', 'Авторизовані'],
+              ['unauthorized', 'Неавторизовані']
+            ] as const).map(([k, l]) => (
+              <button
+                key={k}
+                onClick={() => setFilters({ authStatus: k })}
+                className={`flex-1 px-2 py-1.5 text-xs rounded-md transition-colors ${
+                  filters.authStatus === k
+                    ? 'bg-white text-ink-900 shadow-card'
+                    : 'text-ink-500 hover:text-ink-900'
+                }`}
+              >{l}</button>
+            ))}
+          </div>
+        </div>
+
         <div className="lg:col-span-4 flex flex-wrap gap-3 pt-1">
-          <label className="flex items-center gap-2 text-sm text-ink-700 cursor-pointer">
-            <input type="checkbox"
-              className="accent-ink-900"
-              checked={filters.contactBackOnly}
-              onChange={e => setFilters({ contactBackOnly: e.target.checked })} />
-            Тільки ті, хто просив зв'язатись
-          </label>
           <label className="flex items-center gap-2 text-sm text-ink-700 cursor-pointer">
             <input type="checkbox"
               className="accent-ink-900"
@@ -187,7 +222,8 @@ export default function FiltersPanel() {
 
       {/* Active filter chips summary */}
       {(filters.rms.length || filters.tms.length || filters.shopTypes.length ||
-        filters.contactBackOnly || filters.withCommentsOnly ||
+        filters.contactBackStatus !== 'all' || filters.authStatus !== 'all' ||
+        filters.withCommentsOnly ||
         filters.weekdays.length || filters.ratings.length ||
         filters.cities.length || filters.locations.length) ? (
         <div className="mt-4 pt-3 border-t border-ink-200 flex flex-wrap gap-1.5">
@@ -215,6 +251,22 @@ export default function FiltersPanel() {
               </button>
             </span>
           ))}
+          {filters.contactBackStatus !== 'all' && (
+            <span className="chip bg-accent-soft border border-amber-200">
+              Зв'язатись: {filters.contactBackStatus === 'yes' ? 'Так' : 'Не зазначено'}
+              <button onClick={() => setFilters({ contactBackStatus: 'all' })}>
+                <X size={11} />
+              </button>
+            </span>
+          )}
+          {filters.authStatus !== 'all' && (
+            <span className="chip bg-accent-soft border border-amber-200">
+              {filters.authStatus === 'authorized' ? 'Авторизовані' : 'Неавторизовані'}
+              <button onClick={() => setFilters({ authStatus: 'all' })}>
+                <X size={11} />
+              </button>
+            </span>
+          )}
           {filters.weekdays.map(w => (
             <span key={'w'+w} className="chip bg-accent-soft border border-amber-200">
               {['Нд','Пн','Вт','Ср','Чт','Пт','Сб'][w]}

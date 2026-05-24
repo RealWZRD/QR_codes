@@ -32,6 +32,25 @@ export default function TopGroupChart({ rows }: { rows: FeedbackRow[] }) {
     return g.sort((a, b) => b[sortBy] - a[sortBy]).slice(0, limit)
   }, [rows, mode, sortBy, limit])
 
+  // Для mode='rm' — мапа rm → відсортований список ТМів з кількістю відгуків
+  const rmTmBreakdown = useMemo(() => {
+    if (mode !== 'rm') return {} as Record<string, Array<{ tm: string; count: number }>>
+    const acc: Record<string, Map<string, number>> = {}
+    for (const r of rows) {
+      if (!r.rm) continue
+      const tm = (r.tm || '').trim() || '— без ТМ —'
+      if (!acc[r.rm]) acc[r.rm] = new Map()
+      acc[r.rm].set(tm, (acc[r.rm].get(tm) ?? 0) + 1)
+    }
+    const out: Record<string, Array<{ tm: string; count: number }>> = {}
+    for (const [rm, m] of Object.entries(acc)) {
+      out[rm] = Array.from(m.entries())
+        .map(([tm, count]) => ({ tm, count }))
+        .sort((a, b) => b.count - a.count)
+    }
+    return out
+  }, [rows, mode])
+
   return (
     <div className="card p-5">
       <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
@@ -83,13 +102,38 @@ export default function TopGroupChart({ rows }: { rows: FeedbackRow[] }) {
             tickFormatter={v => v.length > 22 ? v.slice(0, 22) + '…' : v} />
           <Tooltip
             cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-            contentStyle={{ background: '#0a0a0a', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
-            itemStyle={{ color: '#fafafa' }}
-            formatter={(v: any, n: string) => {
-              if (n === sortBy) return [v, sortBy === 'count' ? 'К-ть' : 'NPS']
-              return [v, n]
+            wrapperStyle={{ outline: 'none' }}
+            content={({ active, payload }) => {
+              if (!active || !payload?.[0]) return null
+              const row = payload[0].payload as GroupAgg
+              const tms = mode === 'rm' ? (rmTmBreakdown[row.name] ?? []) : []
+              return (
+                <div className="bg-ink-950 text-white rounded-lg shadow-pop text-xs max-w-[320px] overflow-hidden">
+                  <div className="px-3 py-2 border-b border-ink-800">
+                    <div className="font-medium leading-tight">{row.name}</div>
+                    <div className="text-ink-300 mt-0.5 num">
+                      {row.count.toLocaleString('uk-UA')} відгуків · NPS {row.avgNps.toFixed(2)} · Score {((row.promPct - row.detPct)).toFixed(0)}
+                    </div>
+                  </div>
+                  {mode === 'rm' && tms.length > 0 && (
+                    <div className="px-3 py-2">
+                      <div className="text-[10px] uppercase tracking-wider text-ink-400 mb-1.5">
+                        ТМи в підпорядкуванні ({tms.length})
+                      </div>
+                      <div className="max-h-48 overflow-y-auto pr-1 space-y-0.5">
+                        {tms.map(t => (
+                          <div key={t.tm} className="flex justify-between gap-3 items-baseline">
+                            <span className="truncate text-ink-200">{t.tm}</span>
+                            <span className="font-medium num text-white flex-shrink-0">{t.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
             }}
-            labelStyle={{ color: '#a3a3a3' }} />
+          />
           <Bar
             dataKey={sortBy}
             radius={[0, 4, 4, 0]}

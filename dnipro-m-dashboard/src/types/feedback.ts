@@ -16,6 +16,9 @@ export interface FeedbackRow {
   shopType: ShopType
 }
 
+export type ContactBackStatus = 'all' | 'yes' | 'no'
+export type AuthStatus = 'all' | 'authorized' | 'unauthorized'
+
 export interface Filters {
   dateFrom: Date | null
   dateTo: Date | null
@@ -24,7 +27,8 @@ export interface Filters {
   shopTypes: ShopType[]
   npsMin: number
   npsMax: number
-  contactBackOnly: boolean
+  contactBackStatus: ContactBackStatus
+  authStatus: AuthStatus
   withCommentsOnly: boolean
   weekdays: number[]       // 0..6 (UTC getUTCDay), empty = all
   ratings: number[]        // 1..5, empty = all

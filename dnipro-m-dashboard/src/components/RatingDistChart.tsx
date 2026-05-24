@@ -51,7 +51,12 @@ export default function RatingDistChart({ rows }: { rows: FeedbackRow[] }) {
                   className={`h-full transition-all ${isPositive ? 'bg-ink-900' : 'bg-red-500'}`}
                   style={{ width: `${barPct}%` }}
                 />
-                <span className="absolute inset-0 flex items-center px-2 text-xs font-medium text-ink-700">
+                {/* Число посередині рядка. mix-blend-mode:difference з білим текстом
+                    автоматично контрастує і з темним заповненням, і зі світлим фоном. */}
+                <span
+                  className="absolute inset-0 flex items-center justify-center text-xs font-bold num text-white"
+                  style={{ mixBlendMode: 'difference' }}
+                >
                   {d.count.toLocaleString('uk-UA')}
                 </span>
               </div>

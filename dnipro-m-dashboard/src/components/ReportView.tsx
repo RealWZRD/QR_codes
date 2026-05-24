@@ -11,12 +11,13 @@ interface ReportRow {
   promoters: number
   detractors: number
   contactBack: number
+  unauthorized: number
   npsScore: number // (prom - det) / count * 100
 }
 
-/** Зміна vs попередній рядок (нижчий індекс — старіший). higherIsBetter керує семантикою кольору. */
-function Delta({ curr, prev, kind = 'count', precision = 0 }: {
-  curr: number; prev: number | null; kind?: 'count' | 'nps' | 'score'; precision?: number
+/** Зміна vs попередній рядок (нижчий індекс — старіший). invert=true → менше=краще (зелене). */
+function Delta({ curr, prev, kind = 'count', precision = 0, invert = false }: {
+  curr: number; prev: number | null; kind?: 'count' | 'nps' | 'score'; precision?: number; invert?: boolean
 }) {
   if (prev === null || prev === undefined) {
     return <span className="text-ink-300 num">—</span>
@@ -26,8 +27,8 @@ function Delta({ curr, prev, kind = 'count', precision = 0 }: {
     return <span className="text-ink-400 num inline-flex items-center gap-1"><Minus size={11} /> 0</span>
   }
   const up = diff > 0
-  // higherIsBetter: для count і score — так; для nps — так.
-  const good = up
+  // За замовчуванням більше=добре; invert інвертує (для unauthorized: менше=добре).
+  const good = invert ? !up : up
   const cls = good
     ? 'text-emerald-700 bg-emerald-50'
     : 'text-red-700 bg-red-50'
@@ -75,7 +76,9 @@ function ReportTable({ title, subtitle, data }: { title: string; subtitle: strin
                 <th className="text-right px-3 py-2.5 font-medium">NPS Score</th>
                 <th className="text-right px-3 py-2.5 font-medium">Δ Score</th>
                 <th className="text-right px-4 py-2.5 font-medium">Пром / Детр</th>
-                <th className="text-right px-4 py-2.5 font-medium">Зв'яза&shy;тись</th>
+                <th className="text-right px-3 py-2.5 font-medium whitespace-nowrap">Зв'яза&shy;тись</th>
+                <th className="text-right px-3 py-2.5 font-medium whitespace-nowrap">Не&shy;автор.</th>
+                <th className="text-right px-4 py-2.5 font-medium whitespace-nowrap">Δ Не&shy;автор.</th>
               </tr>
             </thead>
             <tbody>
@@ -96,7 +99,9 @@ function ReportTable({ title, subtitle, data }: { title: string; subtitle: strin
                       {' / '}
                       <span className="text-red-700">{row.detractors}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-right num text-xs text-ink-500">{row.contactBack}</td>
+                    <td className="px-3 py-2.5 text-right num text-ink-700">{row.contactBack.toLocaleString('uk-UA')}</td>
+                    <td className="px-3 py-2.5 text-right num text-ink-700">{row.unauthorized.toLocaleString('uk-UA')}</td>
+                    <td className="px-4 py-2.5 text-right"><Delta curr={row.unauthorized} prev={prev?.unauthorized ?? null} kind="count" invert /></td>
                   </tr>
                 )
               })}
@@ -109,7 +114,7 @@ function ReportTable({ title, subtitle, data }: { title: string; subtitle: strin
 }
 
 function toReportRow(x: {
-  count: number; avgNps: number; promoters: number; detractors: number; contactBack: number
+  count: number; avgNps: number; promoters: number; detractors: number; contactBack: number; unauthorized: number
 }): Omit<ReportRow, 'label'> {
   const score = x.count ? ((x.promoters - x.detractors) / x.count) * 100 : 0
   return { ...x, npsScore: score }

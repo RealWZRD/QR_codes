@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart
 } from 'recharts'
+import { ChevronDown, Check, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react'
 import type { FeedbackRow } from '../types/feedback'
 import {
   buildDailySeries, buildWeeklySeries, buildMonthlySeries, buildDailySeriesByGroup
@@ -10,6 +11,65 @@ import { useStore } from '../lib/store'
 
 type Granularity = 'day' | 'week' | 'month'
 type GroupMode = 'none' | 'rm' | 'tm'
+
+/** Кастомний single-select з фіксованою шириною і скрол-блоком всередині. */
+function GroupSelect({
+  value, onChange, options
+}: {
+  value: GroupMode
+  onChange: (v: GroupMode) => void
+  options: { value: GroupMode; label: string; disabled?: boolean }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const current = options.find(o => o.value === value) ?? options[0]
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  return (
+    <div className="relative w-48">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="input flex items-center justify-between text-left py-1 text-xs"
+        title="Розбити динаміку на окремі лінії по РМ або ТМ"
+      >
+        <span className="truncate text-ink-900">{current.label}</span>
+        <ChevronDown
+          size={14}
+          className={`text-ink-500 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} className="fixed inset-0 z-10" />
+          <div className="absolute z-20 mt-1 left-0 right-0 max-h-64 overflow-y-auto bg-white border border-ink-200 rounded-lg shadow-pop p-1">
+            {options.map(o => {
+              const active = o.value === value
+              return (
+                <button
+                  key={o.value}
+                  disabled={o.disabled}
+                  onClick={() => { onChange(o.value); setOpen(false) }}
+                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded text-xs text-left transition-colors ${
+                    active ? 'bg-accent-soft text-ink-900' : 'text-ink-700 hover:bg-ink-50'
+                  } disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent`}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {active && <Check size={13} className="text-ink-900 flex-shrink-0" />}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 const RM_PALETTE = [
   '#FFD400', '#0a0a0a', '#16a34a', '#dc2626', '#0ea5e9',
@@ -33,6 +93,7 @@ function isoWeekKey(ymd: string): string {
 export default function TimeSeriesChart({ rows }: { rows: FeedbackRow[] }) {
   const [gran, setGran] = useState<Granularity>('day')
   const [groupMode, setGroupMode] = useState<GroupMode>('none')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const { filters } = useStore()
 
   const allRms = useMemo(
@@ -116,16 +177,28 @@ export default function TimeSeriesChart({ rows }: { rows: FeedbackRow[] }) {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <select
+          <GroupSelect
             value={groupMode}
-            onChange={e => setGroupMode(e.target.value as GroupMode)}
-            className="input py-1 text-xs w-auto"
-            title="Розбити динаміку на окремі лінії по РМ або ТМ"
-          >
-            <option value="none">Без групування</option>
-            <option value="rm" disabled={allRms.length < 2}>Усі РМ ({allRms.length})</option>
-            <option value="tm" disabled={allTms.length < 2}>Усі ТМ ({allTms.length})</option>
-          </select>
+            onChange={setGroupMode}
+            options={[
+              { value: 'none', label: 'Без групування' },
+              { value: 'rm',   label: `Усі РМ (${allRms.length})`, disabled: allRms.length < 2 },
+              { value: 'tm',   label: `Усі ТМ (${allTms.length})`, disabled: allTms.length < 2 }
+            ]}
+          />
+          {multi && (
+            <button
+              onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+              title={sortDir === 'desc'
+                ? 'У тултіпі: від більшого до меншого. Натисни — змінити на навпаки.'
+                : 'У тултіпі: від меншого до більшого. Натисни — змінити на навпаки.'}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-ink-700 bg-white border border-ink-300 rounded-md hover:border-ink-500 transition-colors"
+            >
+              {sortDir === 'desc'
+                ? <><ArrowDownWideNarrow size={13} /> <span className="hidden sm:inline">↓ більше зверху</span></>
+                : <><ArrowUpNarrowWide size={13} /> <span className="hidden sm:inline">↑ менше зверху</span></>}
+            </button>
+          )}
           <div className="flex gap-1 bg-ink-100 rounded-lg p-0.5">
             {([
               ['day', 'По днях'],
@@ -152,10 +225,58 @@ export default function TimeSeriesChart({ rows }: { rows: FeedbackRow[] }) {
               angle={xAxisAngle} textAnchor={xAxisAngle ? 'end' : 'middle'} height={xAxisHeight} />
             <YAxis tickLine={false} axisLine={false} />
             <Tooltip
-              contentStyle={{ background: '#0a0a0a', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
-              itemStyle={{ color: '#fafafa' }}
-              labelStyle={{ color: '#a3a3a3' }}
-              itemSorter={(item: any) => -(Number(item.value) || 0)}
+              wrapperStyle={{ outline: 'none', zIndex: 50 }}
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null
+                // У asc-режимі (менше зверху) показуємо й ТМ з 0 відгуків — це сенс сортування.
+                // У desc-режимі (більше зверху) ховаємо нулі, бо вони неінформативні на початку списку.
+                const showZeros = sortDir === 'asc'
+                const items = (payload as any[])
+                  .filter(p => showZeros || Number(p.value) > 0)
+                  .sort((a, b) => sortDir === 'desc'
+                    ? Number(b.value) - Number(a.value)
+                    : Number(a.value) - Number(b.value))
+                const MAX = 12
+                const shown = items.slice(0, MAX)
+                const overflow = items.length - shown.length
+                const total = (payload as any[]).reduce((s, it) => s + Number(it.value), 0)
+                const activeCount = (payload as any[]).filter(p => Number(p.value) > 0).length
+                const zeros = activeGroups.length - activeCount
+                return (
+                  <div className="bg-ink-950 text-white rounded-lg shadow-pop text-xs w-[280px] overflow-hidden">
+                    <div className="px-3 py-2 border-b border-ink-800 flex items-baseline justify-between gap-2">
+                      <span className="text-ink-300 num">{label}</span>
+                      <span className="text-ink-400 text-[10px] uppercase tracking-wider">
+                        усього <span className="text-white font-medium num">{total}</span>
+                      </span>
+                    </div>
+                    {items.length === 0 ? (
+                      <div className="px-3 py-2 text-ink-400">Немає відгуків у цей період</div>
+                    ) : (
+                      <div className="px-3 py-2 space-y-0.5">
+                        {shown.map((it: any) => (
+                          <div key={it.dataKey} className="flex items-center gap-2 leading-snug">
+                            <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: it.color }} />
+                            <span className="flex-1 truncate text-ink-200">{it.dataKey}</span>
+                            <span className="font-medium num text-white flex-shrink-0">{Number(it.value)}</span>
+                          </div>
+                        ))}
+                        {overflow > 0 && (
+                          <div className="mt-1 pt-1 border-t border-ink-800 text-[10px] text-ink-400 italic">
+                            … ще {overflow} {sortDir === 'asc' ? 'у списку' : 'активних'}
+                          </div>
+                        )}
+                        {/* Підсумок про нулі показуємо лише в desc-режимі (в asc вони вже у списку). */}
+                        {!showZeros && zeros > 0 && (
+                          <div className="text-[10px] text-ink-500 italic">
+                            {zeros} {groupLabel} без відгуків у цей період
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              }}
             />
             {activeGroups.map((g, i) => (
               <Line

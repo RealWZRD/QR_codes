@@ -11,6 +11,8 @@ export interface KPIBundle {
   contactBackCount: number
   contactBackPct: number
   commentsCount: number
+  authorized: number      // лишили телефон
+  unauthorized: number    // без телефону
 }
 
 export function calcKPI(rows: FeedbackRow[]): KPIBundle {
@@ -19,10 +21,11 @@ export function calcKPI(rows: FeedbackRow[]): KPIBundle {
     return {
       total: 0, avgNps: 0, avgRating: 0,
       promoters: 0, passives: 0, detractors: 0, npsScore: 0,
-      contactBackCount: 0, contactBackPct: 0, commentsCount: 0
+      contactBackCount: 0, contactBackPct: 0, commentsCount: 0,
+      authorized: 0, unauthorized: 0
     }
   }
-  let npsSum = 0, ratingSum = 0, prom = 0, pas = 0, det = 0, cb = 0, com = 0
+  let npsSum = 0, ratingSum = 0, prom = 0, pas = 0, det = 0, cb = 0, com = 0, auth = 0
   for (const r of rows) {
     npsSum += r.nps
     ratingSum += r.rating
@@ -31,6 +34,7 @@ export function calcKPI(rows: FeedbackRow[]): KPIBundle {
     else det++
     if (r.contactBack) cb++
     if (r.comment) com++
+    if (r.phone && r.phone.trim()) auth++
   }
   return {
     total,
@@ -42,7 +46,9 @@ export function calcKPI(rows: FeedbackRow[]): KPIBundle {
     npsScore: ((prom - det) / total) * 100,
     contactBackCount: cb,
     contactBackPct: (cb / total) * 100,
-    commentsCount: com
+    commentsCount: com,
+    authorized: auth,
+    unauthorized: total - auth
   }
 }
 
@@ -57,22 +63,24 @@ export interface DailySeries {
   promoters: number
   detractors: number
   contactBack: number
+  unauthorized: number  // без телефону
 }
 
 export function buildDailySeries(rows: FeedbackRow[]): DailySeries[] {
-  const buckets = new Map<string, { sum: number; n: number; p: number; d: number; cb: number; date: Date }>()
+  const buckets = new Map<string, { sum: number; n: number; p: number; d: number; cb: number; ua: number; date: Date }>()
   for (const r of rows) {
     const y = r.date.getUTCFullYear()
     const m = String(r.date.getUTCMonth() + 1).padStart(2, '0')
     const d = String(r.date.getUTCDate()).padStart(2, '0')
     const key = `${y}-${m}-${d}`
-    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, p: 0, d: 0, cb: 0, date: r.date })
+    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, p: 0, d: 0, cb: 0, ua: 0, date: r.date })
     const b = buckets.get(key)!
     b.sum += r.nps
     b.n += 1
     if (r.nps >= 9) b.p += 1
     else if (r.nps <= 6) b.d += 1
     if (r.contactBack) b.cb += 1
+    if (!r.phone || !r.phone.trim()) b.ua += 1
   }
   return Array.from(buckets.entries())
     .sort(([a], [b]) => a.localeCompare(b))
@@ -83,7 +91,8 @@ export function buildDailySeries(rows: FeedbackRow[]): DailySeries[] {
       avgNps: +(b.sum / b.n).toFixed(2),
       promoters: b.p,
       detractors: b.d,
-      contactBack: b.cb
+      contactBack: b.cb,
+      unauthorized: b.ua
     }))
 }
 
@@ -97,21 +106,23 @@ export interface MonthlySeries {
   promoters: number
   detractors: number
   contactBack: number
+  unauthorized: number
 }
 
 export function buildMonthlySeries(rows: FeedbackRow[]): MonthlySeries[] {
-  const buckets = new Map<string, { sum: number; n: number; p: number; d: number; cb: number; y: number; m: number }>()
+  const buckets = new Map<string, { sum: number; n: number; p: number; d: number; cb: number; ua: number; y: number; m: number }>()
   for (const r of rows) {
     const y = r.date.getUTCFullYear()
     const m = r.date.getUTCMonth() // 0..11
     const key = `${y}-${String(m + 1).padStart(2, '0')}`
-    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, p: 0, d: 0, cb: 0, y, m })
+    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, p: 0, d: 0, cb: 0, ua: 0, y, m })
     const b = buckets.get(key)!
     b.sum += r.nps
     b.n += 1
     if (r.nps >= 9) b.p += 1
     else if (r.nps <= 6) b.d += 1
     if (r.contactBack) b.cb += 1
+    if (!r.phone || !r.phone.trim()) b.ua += 1
   }
   return Array.from(buckets.entries())
     .sort(([a], [b]) => a.localeCompare(b))
@@ -122,7 +133,8 @@ export function buildMonthlySeries(rows: FeedbackRow[]): MonthlySeries[] {
       avgNps: +(b.sum / b.n).toFixed(2),
       promoters: b.p,
       detractors: b.d,
-      contactBack: b.cb
+      contactBack: b.cb,
+      unauthorized: b.ua
     }))
 }
 
@@ -134,9 +146,10 @@ export interface WeeklySeries {
   promoters: number
   detractors: number
   contactBack: number
+  unauthorized: number
 }
 export function buildWeeklySeries(daily: DailySeries[]): WeeklySeries[] {
-  const buckets = new Map<string, { sum: number; n: number; total: number; p: number; d: number; cb: number; firstDate: string; lastDate: string }>()
+  const buckets = new Map<string, { sum: number; n: number; total: number; p: number; d: number; cb: number; ua: number; firstDate: string; lastDate: string }>()
   for (const d of daily) {
     // ISO week computation
     const dt = new Date(d.date + 'T00:00:00Z')
@@ -145,7 +158,7 @@ export function buildWeeklySeries(daily: DailySeries[]): WeeklySeries[] {
     const firstThursday = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4))
     const week = 1 + Math.round(((dt.getTime() - firstThursday.getTime()) / 86400000 - 3) / 7)
     const key = `${dt.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
-    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, total: 0, p: 0, d: 0, cb: 0, firstDate: d.date, lastDate: d.date })
+    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, total: 0, p: 0, d: 0, cb: 0, ua: 0, firstDate: d.date, lastDate: d.date })
     const b = buckets.get(key)!
     b.sum += d.avgNps * d.count
     b.n += d.count
@@ -153,6 +166,7 @@ export function buildWeeklySeries(daily: DailySeries[]): WeeklySeries[] {
     b.p += d.promoters
     b.d += d.detractors
     b.cb += d.contactBack
+    b.ua += d.unauthorized
     if (d.date < b.firstDate) b.firstDate = d.date
     if (d.date > b.lastDate) b.lastDate = d.date
   }
@@ -165,7 +179,8 @@ export function buildWeeklySeries(daily: DailySeries[]): WeeklySeries[] {
       avgNps: b.n ? +(b.sum / b.n).toFixed(2) : 0,
       promoters: b.p,
       detractors: b.d,
-      contactBack: b.cb
+      contactBack: b.cb,
+      unauthorized: b.ua
     }))
 }
 
