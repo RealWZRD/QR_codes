@@ -57,7 +57,7 @@ export default function NpsHelp() {
             <div className="p-5 space-y-4 text-sm text-ink-700 leading-relaxed max-h-[70vh] overflow-y-auto">
 
               <p>
-                Клієнт відповідає на питання типу <em>«Наскільки порекомендуєте Dnipro-M другу від 0 до 10?»</em>
+                Клієнт відповідає на питання типу <em>«Наскільки порекомендуєте нас другу від 0 до 10?»</em>
                 За оцінкою людину відносять до однієї з трьох груп:
               </p>
 

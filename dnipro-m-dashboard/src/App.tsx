@@ -63,7 +63,7 @@ export default function App() {
         )}
 
         <footer className="text-center text-xs text-ink-400 py-6 border-t border-ink-200">
-          Dnipro-M · Аналітика відгуків QR · {filtered.length} з {rows.length} записів після фільтрації
+          QR Feedback · {filtered.length} з {rows.length} записів після фільтрації
         </footer>
       </main>
     </div>
@@ -80,10 +80,10 @@ function Header({ compact, view, setView }: { compact: boolean; view: View; setV
           </div>
           <div className="min-w-0">
             <div className="font-display text-base font-semibold tracking-tight leading-tight truncate">
-              Dnipro-M · Аналітика
+              QR Feedback
             </div>
             <div className="text-[10px] uppercase tracking-[0.2em] text-ink-400">
-              Відгуки QR · Dashboard
+              Аналітика відгуків
             </div>
           </div>
         </div>
