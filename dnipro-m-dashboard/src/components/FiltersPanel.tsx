@@ -187,7 +187,8 @@ export default function FiltersPanel() {
 
       {/* Active filter chips summary */}
       {(filters.rms.length || filters.tms.length || filters.shopTypes.length ||
-        filters.contactBackOnly || filters.withCommentsOnly) ? (
+        filters.contactBackOnly || filters.withCommentsOnly ||
+        filters.weekday !== null || filters.rating !== null) ? (
         <div className="mt-4 pt-3 border-t border-ink-200 flex flex-wrap gap-1.5">
           {filters.rms.map(r => (
             <span key={'r'+r} className="chip bg-ink-100">
@@ -213,6 +214,22 @@ export default function FiltersPanel() {
               </button>
             </span>
           ))}
+          {filters.weekday !== null && (
+            <span className="chip bg-accent-soft border border-amber-200">
+              День: {['Нд','Пн','Вт','Ср','Чт','Пт','Сб'][filters.weekday]}
+              <button onClick={() => setFilters({ weekday: null })}>
+                <X size={11} />
+              </button>
+            </span>
+          )}
+          {filters.rating !== null && (
+            <span className="chip bg-accent-soft border border-amber-200">
+              Рейтинг: {filters.rating} ★
+              <button onClick={() => setFilters({ rating: null })}>
+                <X size={11} />
+              </button>
+            </span>
+          )}
         </div>
       ) : null}
     </div>

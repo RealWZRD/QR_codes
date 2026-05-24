@@ -20,7 +20,9 @@ const initialFilters: Filters = {
   npsMin: 0,
   npsMax: 10,
   contactBackOnly: false,
-  withCommentsOnly: false
+  withCommentsOnly: false,
+  weekday: null,
+  rating: null
 }
 
 export const useStore = create<DataStore>((set) => ({
@@ -59,6 +61,8 @@ export function applyFilters(rows: FeedbackRow[], f: Filters): FeedbackRow[] {
     if (r.nps < f.npsMin || r.nps > f.npsMax) return false
     if (f.contactBackOnly && !r.contactBack) return false
     if (f.withCommentsOnly && !r.comment) return false
+    if (f.weekday !== null && r.date.getUTCDay() !== f.weekday) return false
+    if (f.rating !== null && Math.round(r.rating) !== f.rating) return false
     return true
   })
 }

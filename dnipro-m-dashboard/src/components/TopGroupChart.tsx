@@ -67,7 +67,9 @@ export default function TopGroupChart({ rows }: { rows: FeedbackRow[] }) {
             tickLine={false} axisLine={false}
             tickFormatter={v => v.length > 22 ? v.slice(0, 22) + '…' : v} />
           <Tooltip
+            cursor={{ fill: 'rgba(0,0,0,0.04)' }}
             contentStyle={{ background: '#0a0a0a', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
+            itemStyle={{ color: '#fafafa' }}
             formatter={(v: any, n: string) => {
               if (n === sortBy) return [v, sortBy === 'count' ? 'К-ть' : 'NPS']
               return [v, n]

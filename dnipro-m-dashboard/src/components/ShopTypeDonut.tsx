@@ -43,6 +43,8 @@ function Donut({
             </Pie>
             <Tooltip
               contentStyle={{ background: '#0a0a0a', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
+              itemStyle={{ color: '#fafafa' }}
+              labelStyle={{ color: '#a3a3a3' }}
               formatter={(v: any, _n, p: any) => {
                 const pct = total ? ((v / total) * 100).toFixed(1) : '0'
                 return [`${v} (${pct}%)`, p.payload.name]

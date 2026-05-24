@@ -26,4 +26,6 @@ export interface Filters {
   npsMax: number
   contactBackOnly: boolean
   withCommentsOnly: boolean
+  weekday: number | null   // 0..6 (UTC getUTCDay; 0=Нд, 1=Пн, ..., 6=Сб)
+  rating: number | null    // 1..5 (round) — drill-down з RatingDistChart
 }

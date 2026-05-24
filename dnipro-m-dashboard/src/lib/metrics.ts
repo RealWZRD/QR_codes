@@ -56,21 +56,23 @@ export interface DailySeries {
   avgNps: number
   promoters: number
   detractors: number
+  contactBack: number
 }
 
 export function buildDailySeries(rows: FeedbackRow[]): DailySeries[] {
-  const buckets = new Map<string, { sum: number; n: number; p: number; d: number; date: Date }>()
+  const buckets = new Map<string, { sum: number; n: number; p: number; d: number; cb: number; date: Date }>()
   for (const r of rows) {
     const y = r.date.getUTCFullYear()
     const m = String(r.date.getUTCMonth() + 1).padStart(2, '0')
     const d = String(r.date.getUTCDate()).padStart(2, '0')
     const key = `${y}-${m}-${d}`
-    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, p: 0, d: 0, date: r.date })
+    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, p: 0, d: 0, cb: 0, date: r.date })
     const b = buckets.get(key)!
     b.sum += r.nps
     b.n += 1
     if (r.nps >= 9) b.p += 1
     else if (r.nps <= 6) b.d += 1
+    if (r.contactBack) b.cb += 1
   }
   return Array.from(buckets.entries())
     .sort(([a], [b]) => a.localeCompare(b))
@@ -80,13 +82,61 @@ export function buildDailySeries(rows: FeedbackRow[]): DailySeries[] {
       count: b.n,
       avgNps: +(b.sum / b.n).toFixed(2),
       promoters: b.p,
-      detractors: b.d
+      detractors: b.d,
+      contactBack: b.cb
     }))
 }
 
-export interface WeeklySeries { week: string; count: number; avgNps: number }
+const MONTHS_UK_SHORT = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру']
+
+export interface MonthlySeries {
+  month: string       // "YYYY-MM"
+  label: string       // "Січ 2026"
+  count: number
+  avgNps: number
+  promoters: number
+  detractors: number
+  contactBack: number
+}
+
+export function buildMonthlySeries(rows: FeedbackRow[]): MonthlySeries[] {
+  const buckets = new Map<string, { sum: number; n: number; p: number; d: number; cb: number; y: number; m: number }>()
+  for (const r of rows) {
+    const y = r.date.getUTCFullYear()
+    const m = r.date.getUTCMonth() // 0..11
+    const key = `${y}-${String(m + 1).padStart(2, '0')}`
+    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, p: 0, d: 0, cb: 0, y, m })
+    const b = buckets.get(key)!
+    b.sum += r.nps
+    b.n += 1
+    if (r.nps >= 9) b.p += 1
+    else if (r.nps <= 6) b.d += 1
+    if (r.contactBack) b.cb += 1
+  }
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, b]) => ({
+      month: key,
+      label: `${MONTHS_UK_SHORT[b.m]} ${b.y}`,
+      count: b.n,
+      avgNps: +(b.sum / b.n).toFixed(2),
+      promoters: b.p,
+      detractors: b.d,
+      contactBack: b.cb
+    }))
+}
+
+export interface WeeklySeries {
+  week: string         // YYYY-Www
+  label: string        // "Тиж 21, 19–25.05"
+  count: number
+  avgNps: number
+  promoters: number
+  detractors: number
+  contactBack: number
+}
 export function buildWeeklySeries(daily: DailySeries[]): WeeklySeries[] {
-  const buckets = new Map<string, { sum: number; n: number; total: number }>()
+  const buckets = new Map<string, { sum: number; n: number; total: number; p: number; d: number; cb: number; firstDate: string; lastDate: string }>()
   for (const d of daily) {
     // ISO week computation
     const dt = new Date(d.date + 'T00:00:00Z')
@@ -95,18 +145,27 @@ export function buildWeeklySeries(daily: DailySeries[]): WeeklySeries[] {
     const firstThursday = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4))
     const week = 1 + Math.round(((dt.getTime() - firstThursday.getTime()) / 86400000 - 3) / 7)
     const key = `${dt.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
-    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, total: 0 })
+    if (!buckets.has(key)) buckets.set(key, { sum: 0, n: 0, total: 0, p: 0, d: 0, cb: 0, firstDate: d.date, lastDate: d.date })
     const b = buckets.get(key)!
     b.sum += d.avgNps * d.count
     b.n += d.count
     b.total += d.count
+    b.p += d.promoters
+    b.d += d.detractors
+    b.cb += d.contactBack
+    if (d.date < b.firstDate) b.firstDate = d.date
+    if (d.date > b.lastDate) b.lastDate = d.date
   }
   return Array.from(buckets.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, b]) => ({
       week: key,
+      label: `Тиж ${key.slice(-2)}, ${b.firstDate.slice(8, 10)}.${b.firstDate.slice(5, 7)}–${b.lastDate.slice(8, 10)}.${b.lastDate.slice(5, 7)}`,
       count: b.total,
-      avgNps: +(b.sum / b.n).toFixed(2)
+      avgNps: b.n ? +(b.sum / b.n).toFixed(2) : 0,
+      promoters: b.p,
+      detractors: b.d,
+      contactBack: b.cb
     }))
 }
 
@@ -154,11 +213,54 @@ export function groupBy(rows: FeedbackRow[], key: keyof FeedbackRow): GroupAgg[]
   }))
 }
 
-/** Top N city extraction (city = part before first comma). */
+/**
+ * Multi-word Ukrainian city whitelist — щоб не зрізалися до першого слова,
+ * коли роздільник коми в адресі відсутній.
+ */
+const MULTI_WORD_CITIES = [
+  'Кривий Ріг', 'Біла Церква', 'Жовті Води', 'Новий Буг', 'Новий Розділ',
+  'Велика Димерка', 'Велика Олександрівка', 'Старий Любар', 'Нова Водолага',
+  'Горішні Плавні', 'Зимна Вода', 'Кам\'янець-Подільський',
+  'Могилів-Подільський', 'Івано-Франківськ', 'Петропавлівська Борщагівка'
+]
+
+/** Typo / синонім → canonical. Ключі та значення в нижньому регістрі. */
+const CITY_TYPOS: Record<string, string> = {
+  'біла цервка': 'Біла Церква',
+  'петр борщагівка': 'Петропавлівська Борщагівка',
+  'київ видубичі': 'Київ'
+}
+
+/**
+ * Нормалізує "Об'єкт" → канонічна назва міста.
+ *  1) перший сегмент до коми (як було)
+ *  2) якщо сегмент починається з відомого мульти-словного міста — повертаємо це місто
+ *  3) typo-мапа
+ *  4) інакше — перше слово
+ */
+export function normalizeCity(location: string): string {
+  const raw = (location || '').trim()
+  if (!raw) return ''
+  const firstSeg = (raw.split(',')[0] || '').trim()
+  const low = firstSeg.toLowerCase()
+
+  for (const city of MULTI_WORD_CITIES) {
+    if (low.startsWith(city.toLowerCase())) return city
+  }
+  if (CITY_TYPOS[low]) return CITY_TYPOS[low]
+  for (const key of Object.keys(CITY_TYPOS)) {
+    if (low.startsWith(key)) return CITY_TYPOS[key]
+  }
+  // single-word fallback — захищає від "Кривий ріг просп. ..." (без коми)
+  const firstWord = firstSeg.split(/\s+/)[0]
+  return firstWord
+}
+
+/** Top N city extraction with normalization. */
 export function buildCityAgg(rows: FeedbackRow[]): GroupAgg[] {
   const m = new Map<string, { sum: number; rs: number; n: number; p: number; d: number }>()
   for (const r of rows) {
-    const city = (r.location.split(',')[0] || '').trim()
+    const city = normalizeCity(r.location)
     if (!city) continue
     if (!m.has(city)) m.set(city, { sum: 0, rs: 0, n: 0, p: 0, d: 0 })
     const b = m.get(city)!
@@ -176,6 +278,44 @@ export function buildCityAgg(rows: FeedbackRow[]): GroupAgg[] {
     promPct: +((b.p / b.n) * 100).toFixed(1),
     detPct: +((b.d / b.n) * 100).toFixed(1)
   }))
+}
+
+/**
+ * Daily series розбита по групах (для multi-line TimeSeries по РМ).
+ * Повертає { x: dateLabel, sort: yyyy-mm-dd, [groupKey]: count, ... }
+ * де groupKey — кожне значення з `groups` (наприклад, ім'я РМ).
+ */
+export interface MultiSeriesPoint { x: string; sort: string; [groupKey: string]: number | string }
+
+export function buildDailySeriesByGroup(
+  rows: FeedbackRow[],
+  groupKey: keyof FeedbackRow,
+  groups: string[]
+): MultiSeriesPoint[] {
+  const groupSet = new Set(groups)
+  // dateKey -> Map<group, count>
+  const buckets = new Map<string, Map<string, number>>()
+  for (const r of rows) {
+    const g = String(r[groupKey] ?? '').trim()
+    if (!groupSet.has(g)) continue
+    const y = r.date.getUTCFullYear()
+    const mo = String(r.date.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(r.date.getUTCDate()).padStart(2, '0')
+    const key = `${y}-${mo}-${d}`
+    if (!buckets.has(key)) buckets.set(key, new Map())
+    const inner = buckets.get(key)!
+    inner.set(g, (inner.get(g) || 0) + 1)
+  }
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, inner]) => {
+      const row: MultiSeriesPoint = {
+        x: `${key.slice(8, 10)}.${key.slice(5, 7)}`,
+        sort: key
+      }
+      for (const g of groups) row[g] = inner.get(g) || 0
+      return row
+    })
 }
 
 export function buildShopTypeDist(rows: FeedbackRow[]) {
