@@ -188,7 +188,8 @@ export default function FiltersPanel() {
       {/* Active filter chips summary */}
       {(filters.rms.length || filters.tms.length || filters.shopTypes.length ||
         filters.contactBackOnly || filters.withCommentsOnly ||
-        filters.weekday !== null || filters.rating !== null) ? (
+        filters.weekdays.length || filters.ratings.length ||
+        filters.cities.length || filters.locations.length) ? (
         <div className="mt-4 pt-3 border-t border-ink-200 flex flex-wrap gap-1.5">
           {filters.rms.map(r => (
             <span key={'r'+r} className="chip bg-ink-100">
@@ -214,22 +215,38 @@ export default function FiltersPanel() {
               </button>
             </span>
           ))}
-          {filters.weekday !== null && (
-            <span className="chip bg-accent-soft border border-amber-200">
-              День: {['Нд','Пн','Вт','Ср','Чт','Пт','Сб'][filters.weekday]}
-              <button onClick={() => setFilters({ weekday: null })}>
+          {filters.weekdays.map(w => (
+            <span key={'w'+w} className="chip bg-accent-soft border border-amber-200">
+              {['Нд','Пн','Вт','Ср','Чт','Пт','Сб'][w]}
+              <button onClick={() => setFilters({ weekdays: filters.weekdays.filter(x => x !== w) })}>
                 <X size={11} />
               </button>
             </span>
-          )}
-          {filters.rating !== null && (
-            <span className="chip bg-accent-soft border border-amber-200">
-              Рейтинг: {filters.rating} ★
-              <button onClick={() => setFilters({ rating: null })}>
+          ))}
+          {filters.ratings.map(r => (
+            <span key={'rat'+r} className="chip bg-accent-soft border border-amber-200">
+              {r} ★
+              <button onClick={() => setFilters({ ratings: filters.ratings.filter(x => x !== r) })}>
                 <X size={11} />
               </button>
             </span>
-          )}
+          ))}
+          {filters.cities.map(c => (
+            <span key={'c'+c} className="chip bg-ink-100">
+              Місто: {c}
+              <button onClick={() => setFilters({ cities: filters.cities.filter(x => x !== c) })}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          {filters.locations.map(l => (
+            <span key={'l'+l} className="chip bg-ink-100" title={l}>
+              Об'єкт: {l.length > 28 ? l.slice(0, 28) + '…' : l}
+              <button onClick={() => setFilters({ locations: filters.locations.filter(x => x !== l) })}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
         </div>
       ) : null}
     </div>

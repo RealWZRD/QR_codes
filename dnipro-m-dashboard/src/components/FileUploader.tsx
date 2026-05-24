@@ -28,21 +28,6 @@ export default function FileUploader({ compact = false }: { compact?: boolean })
     }
   }
 
-  async function loadSample() {
-    setBusy(true); setErr(null)
-    try {
-      const res = await fetch('/sample-data.xlsx')
-      if (!res.ok) throw new Error('Не знайдено sample-data.xlsx')
-      const buf = await res.arrayBuffer()
-      const rows = await parseFeedbackXlsx(buf)
-      setRows(rows, 'sample-data.xlsx (приклад)')
-    } catch (e: any) {
-      setErr(`Не вдалося завантажити приклад: ${e?.message}`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   if (compact) {
     return (
       <div className="flex items-center gap-2">
@@ -97,22 +82,6 @@ export default function FileUploader({ compact = false }: { compact?: boolean })
           <div className="font-medium text-ink-900">Перетягніть файл сюди або клацніть для вибору</div>
           <div className="text-xs text-ink-500 mt-1">.xlsx, .xlsm, .xls, .csv</div>
         </label>
-
-        <div className="my-4 flex items-center gap-3 text-xs text-ink-400">
-          <div className="flex-1 h-px bg-ink-200" />
-          <span>або</span>
-          <div className="flex-1 h-px bg-ink-200" />
-        </div>
-
-        <button
-          onClick={loadSample}
-          disabled={busy}
-          className="btn-ghost border border-ink-300"
-        >
-          {busy
-            ? <><RotateCw size={14} className="animate-spin" /> Завантаження…</>
-            : <>Завантажити приклад (data_QRs.xlsx)</>}
-        </button>
 
         {err && (
           <div className="mt-4 text-sm flex items-start gap-2 text-red-700 bg-red-50 p-3 rounded-lg border border-red-200 text-left">

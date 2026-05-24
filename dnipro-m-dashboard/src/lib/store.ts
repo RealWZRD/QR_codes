@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { FeedbackRow, Filters } from '../types/feedback'
+import { normalizeCity } from './metrics'
 
 interface DataStore {
   rows: FeedbackRow[]
@@ -21,8 +22,10 @@ const initialFilters: Filters = {
   npsMax: 10,
   contactBackOnly: false,
   withCommentsOnly: false,
-  weekday: null,
-  rating: null
+  weekdays: [],
+  ratings: [],
+  cities: [],
+  locations: []
 }
 
 export const useStore = create<DataStore>((set) => ({
@@ -50,6 +53,21 @@ export const useStore = create<DataStore>((set) => ({
   })
 }))
 
+/**
+ * Multi-select toggle для drill-down кліків.
+ *  - звичайний клік: тільки `value` (заміна). Якщо вже єдиний обраний — скидаємо.
+ *  - shift+click: toggle у мульті-наборі.
+ */
+export function multiToggle<T>(current: T[], value: T, shift: boolean): T[] {
+  if (shift) {
+    return current.includes(value)
+      ? current.filter(x => x !== value)
+      : [...current, value]
+  }
+  if (current.length === 1 && current[0] === value) return []
+  return [value]
+}
+
 /** Apply filters to rows. */
 export function applyFilters(rows: FeedbackRow[], f: Filters): FeedbackRow[] {
   return rows.filter(r => {
@@ -61,8 +79,10 @@ export function applyFilters(rows: FeedbackRow[], f: Filters): FeedbackRow[] {
     if (r.nps < f.npsMin || r.nps > f.npsMax) return false
     if (f.contactBackOnly && !r.contactBack) return false
     if (f.withCommentsOnly && !r.comment) return false
-    if (f.weekday !== null && r.date.getUTCDay() !== f.weekday) return false
-    if (f.rating !== null && Math.round(r.rating) !== f.rating) return false
+    if (f.weekdays.length && !f.weekdays.includes(r.date.getUTCDay())) return false
+    if (f.ratings.length && !f.ratings.includes(Math.round(r.rating))) return false
+    if (f.cities.length && !f.cities.includes(normalizeCity(r.location))) return false
+    if (f.locations.length && !f.locations.includes(r.location)) return false
     return true
   })
 }

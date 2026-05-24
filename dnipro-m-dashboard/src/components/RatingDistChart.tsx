@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import type { FeedbackRow } from '../types/feedback'
 import { buildRatingDist } from '../lib/metrics'
 import { Star } from 'lucide-react'
-import { useStore } from '../lib/store'
+import { useStore, multiToggle } from '../lib/store'
 
 export default function RatingDistChart({ rows }: { rows: FeedbackRow[] }) {
   const { filters, setFilters } = useStore()
@@ -10,17 +10,19 @@ export default function RatingDistChart({ rows }: { rows: FeedbackRow[] }) {
   const total = data.reduce((s, d) => s + d.count, 0)
   const max = Math.max(...data.map(d => d.count), 1)
 
-  const toggleRating = (r: number) =>
-    setFilters({ rating: filters.rating === r ? null : r })
+  const clickRating = (r: number, e: React.MouseEvent) => {
+    setFilters({ ratings: multiToggle(filters.ratings, r, e.shiftKey) })
+  }
 
   return (
     <div className="card p-5">
       <h3 className="card-title">Розподіл рейтингів</h3>
       <p className="text-xs text-ink-500 mt-0.5 mb-4">
         Скільки зірок ставлять клієнти
-        {filters.rating !== null && (
+        <span className="ml-2 text-ink-400">· клік = тільки цей рейтинг, Shift+клік = додати/прибрати</span>
+        {filters.ratings.length > 0 && (
           <span className="ml-2 text-ink-900 font-medium">
-            · фільтр: {filters.rating} ★ (натисни ще раз, щоб скинути)
+            · обрано: {filters.ratings.map(r => `${r}★`).join(', ')}
           </span>
         )}
       </p>
@@ -29,16 +31,16 @@ export default function RatingDistChart({ rows }: { rows: FeedbackRow[] }) {
           const pct = total ? (d.count / total) * 100 : 0
           const barPct = (d.count / max) * 100
           const isPositive = d.rating >= 4
-          const isActive = filters.rating === d.rating
-          const dimmed = filters.rating !== null && !isActive
+          const isActive = filters.ratings.includes(d.rating)
+          const dimmed = filters.ratings.length > 0 && !isActive
           return (
             <div
               key={d.rating}
-              onClick={() => toggleRating(d.rating)}
+              onClick={(e) => clickRating(d.rating, e)}
               className={`flex items-center gap-3 cursor-pointer rounded-md px-1 py-0.5 transition-colors ${
                 isActive ? 'bg-accent-soft' : 'hover:bg-ink-50'
               } ${dimmed ? 'opacity-50' : ''}`}
-              title={isActive ? 'Натисни, щоб скинути фільтр' : `Показати лише ${d.rating} ★ по всьому дашборду`}
+              title={`Клік: тільки ${d.rating}★. Shift+клік: додати/прибрати ${d.rating}★ у мульти-вибір.`}
             >
               <div className="flex items-center gap-0.5 w-16 num">
                 <span className="font-medium text-sm">{d.rating}</span>

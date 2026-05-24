@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { FeedbackRow } from '../types/feedback'
 import { buildDailySeries, buildWeeklySeries, buildMonthlySeries } from '../lib/metrics'
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { useStore, multiToggle } from '../lib/store'
+import { TrendingUp, TrendingDown, Minus, MapPin } from 'lucide-react'
 
 interface ReportRow {
   label: string
@@ -114,12 +115,166 @@ function toReportRow(x: {
   return { ...x, npsScore: score }
 }
 
+interface LocationRow {
+  location: string
+  count: number
+  avgNps: number
+  avgRating: number
+  promoters: number
+  detractors: number
+  contactBack: number
+}
+
+function buildLocationAgg(rows: FeedbackRow[]): LocationRow[] {
+  const m = new Map<string, { nps: number; rat: number; n: number; p: number; d: number; cb: number }>()
+  for (const r of rows) {
+    const key = r.location.trim()
+    if (!key) continue
+    if (!m.has(key)) m.set(key, { nps: 0, rat: 0, n: 0, p: 0, d: 0, cb: 0 })
+    const b = m.get(key)!
+    b.nps += r.nps
+    b.rat += r.rating
+    b.n += 1
+    if (r.nps >= 9) b.p += 1
+    else if (r.nps <= 6) b.d += 1
+    if (r.contactBack) b.cb += 1
+  }
+  return Array.from(m.entries())
+    .map(([location, b]) => ({
+      location,
+      count: b.n,
+      avgNps: +(b.nps / b.n).toFixed(2),
+      avgRating: +(b.rat / b.n).toFixed(2),
+      promoters: b.p,
+      detractors: b.d,
+      contactBack: b.cb
+    }))
+    .sort((a, b) => b.count - a.count)
+}
+
+const PAGE_SIZE = 30
+
+function LocationTable({ data }: { data: LocationRow[] }) {
+  const [limit, setLimit] = useState(PAGE_SIZE)
+  const [query, setQuery] = useState('')
+  const { filters, setFilters } = useStore()
+
+  const filtered = useMemo(() => {
+    if (!query) return data
+    const q = query.toLowerCase()
+    return data.filter(r => r.location.toLowerCase().includes(q))
+  }, [data, query])
+
+  const visible = filtered.slice(0, limit)
+  const hasMore = visible.length < filtered.length
+
+  const clickRow = (location: string, e: React.MouseEvent) => {
+    setFilters({ locations: multiToggle(filters.locations, location, e.shiftKey) })
+  }
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="p-5 border-b border-ink-200">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="card-title">По об'єктах</h3>
+            <p className="text-xs text-ink-500 mt-0.5">
+              {filtered.length.toLocaleString('uk-UA')} {filtered.length === 1 ? 'об\'єкт' : 'об\'єктів'} ·
+              показано {visible.length.toLocaleString('uk-UA')}
+              <span className="ml-2 text-ink-400">· клік = фільтр на весь дашборд, Shift+клік = додати</span>
+              {filters.locations.length > 0 && (
+                <span className="ml-2 text-ink-900 font-medium">· обрано: {filters.locations.length}</span>
+              )}
+            </p>
+          </div>
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); setLimit(PAGE_SIZE) }}
+            placeholder="Пошук об'єкта…"
+            className="input text-xs max-w-xs"
+          />
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="p-8 text-center text-sm text-ink-400">Немає об'єктів за обраними фільтрами</div>
+      ) : (
+        <>
+          <div className="max-h-[560px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-ink-50 text-[11px] uppercase tracking-wider text-ink-500 sticky top-0">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium">Об'єкт</th>
+                  <th className="text-right px-3 py-2.5 font-medium">Відгуків</th>
+                  <th className="text-right px-3 py-2.5 font-medium">Сер. NPS</th>
+                  <th className="text-right px-3 py-2.5 font-medium">Рейтинг</th>
+                  <th className="text-right px-3 py-2.5 font-medium">Пром / Детр</th>
+                  <th className="text-right px-4 py-2.5 font-medium">Зв'язатись</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map(row => {
+                  const isActive = filters.locations.includes(row.location)
+                  return (
+                    <tr
+                      key={row.location}
+                      onClick={(e) => clickRow(row.location, e)}
+                      className={`border-t border-ink-100 cursor-pointer transition-colors ${
+                        isActive ? 'bg-accent-soft hover:bg-accent-soft/80' : 'hover:bg-ink-50/60'
+                      }`}
+                      title="Клік: тільки цей об'єкт. Shift+клік: додати/прибрати у мульти-вибір."
+                    >
+                      <td className="px-4 py-2.5 text-ink-900 max-w-[420px]">
+                        <div className="flex items-start gap-1.5">
+                          <MapPin size={12} className="mt-1 text-ink-400 flex-shrink-0" />
+                          <span className="truncate" title={row.location}>{row.location}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-right num font-medium text-ink-900">{row.count.toLocaleString('uk-UA')}</td>
+                      <td className="px-3 py-2.5 text-right num text-ink-700">{row.avgNps.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right num text-ink-700">{row.avgRating.toFixed(2)} ★</td>
+                      <td className="px-3 py-2.5 text-right num text-xs text-ink-500">
+                        <span className="text-emerald-700">{row.promoters}</span>
+                        {' / '}
+                        <span className="text-red-700">{row.detractors}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right num text-xs text-ink-500">{row.contactBack}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {hasMore && (
+            <div className="p-3 border-t border-ink-200 flex items-center justify-center gap-2 bg-ink-50/40">
+              <button
+                onClick={() => setLimit(l => l + PAGE_SIZE)}
+                className="btn-ghost border border-ink-300 text-xs"
+              >
+                Показати ще {Math.min(PAGE_SIZE, filtered.length - limit)}
+              </button>
+              <button
+                onClick={() => setLimit(filtered.length)}
+                className="btn-ghost text-xs"
+              >
+                Прогрузити всі ({filtered.length.toLocaleString('uk-UA')})
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function ReportView({ rows }: { rows: FeedbackRow[] }) {
   const [period, setPeriod] = useState<'week' | 'month' | 'both'>('both')
 
   const daily = useMemo(() => buildDailySeries(rows), [rows])
   const weeklyRaw = useMemo(() => buildWeeklySeries(daily), [daily])
   const monthlyRaw = useMemo(() => buildMonthlySeries(rows), [rows])
+  const locations = useMemo(() => buildLocationAgg(rows), [rows])
 
   const weekly: ReportRow[] = weeklyRaw.map(w => ({ label: w.label, ...toReportRow(w) }))
   const monthly: ReportRow[] = monthlyRaw.map(m => ({ label: m.label, ...toReportRow(m) }))
@@ -165,6 +320,8 @@ export default function ReportView({ rows }: { rows: FeedbackRow[] }) {
           data={weekly}
         />
       )}
+
+      <LocationTable data={locations} />
     </div>
   )
 }

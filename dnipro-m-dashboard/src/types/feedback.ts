@@ -26,6 +26,8 @@ export interface Filters {
   npsMax: number
   contactBackOnly: boolean
   withCommentsOnly: boolean
-  weekday: number | null   // 0..6 (UTC getUTCDay; 0=Нд, 1=Пн, ..., 6=Сб)
-  rating: number | null    // 1..5 (round) — drill-down з RatingDistChart
+  weekdays: number[]       // 0..6 (UTC getUTCDay), empty = all
+  ratings: number[]        // 1..5, empty = all
+  cities: string[]         // canonical city names (normalizeCity), empty = all
+  locations: string[]      // full "Об'єкт" string, для drill-down зі звіту
 }
