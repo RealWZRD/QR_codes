@@ -11,9 +11,10 @@ import RatingDistChart from './components/RatingDistChart'
 import CommentsTable from './components/CommentsTable'
 import ReportView from './components/ReportView'
 import FileUploader from './components/FileUploader'
-import { BarChart3, Table2 } from 'lucide-react'
+import ExcelReportMaker from './components/ExcelReportMaker'
+import { BarChart3, Table2, FileDown } from 'lucide-react'
 
-type View = 'dashboard' | 'report'
+type View = 'dashboard' | 'report' | 'excel'
 
 export default function App() {
   const { rows, filters, loaded } = useStore()
@@ -26,8 +27,14 @@ export default function App() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header compact={false} view={view} setView={setView} />
-        <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 gap-6">
           <FileUploader />
+          <div className="flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-ink-400">
+            <span className="h-px w-16 bg-ink-200" />
+            або
+            <span className="h-px w-16 bg-ink-200" />
+          </div>
+          <ExcelReportMaker />
         </main>
       </div>
     )
@@ -37,29 +44,37 @@ export default function App() {
     <div className="min-h-screen">
       <Header compact view={view} setView={setView} />
       <main className="max-w-[1600px] mx-auto px-4 md:px-6 py-6 space-y-5">
-        <FiltersPanel />
-        <KPICards k={kpi} />
-
-        {view === 'dashboard' ? (
-          <>
-            <TimeSeriesChart rows={filtered} />
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <WeekdayChart rows={filtered} />
-              <RatingDistChart rows={filtered} />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <ShopTypeDonut rows={filtered} />
-              <ContactBackDonut rows={filtered} />
-            </div>
-
-            <TopGroupChart rows={filtered} />
-
-            <CommentsTable rows={filtered} />
-          </>
+        {view === 'excel' ? (
+          <div className="py-8">
+            <ExcelReportMaker />
+          </div>
         ) : (
-          <ReportView rows={filtered} />
+          <>
+            <FiltersPanel />
+            <KPICards k={kpi} />
+
+            {view === 'dashboard' ? (
+              <>
+                <TimeSeriesChart rows={filtered} />
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <WeekdayChart rows={filtered} />
+                  <RatingDistChart rows={filtered} />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <ShopTypeDonut rows={filtered} />
+                  <ContactBackDonut rows={filtered} />
+                </div>
+
+                <TopGroupChart rows={filtered} />
+
+                <CommentsTable rows={filtered} />
+              </>
+            ) : (
+              <ReportView rows={filtered} />
+            )}
+          </>
         )}
 
         <footer className="text-center text-xs text-ink-400 py-6 border-t border-ink-200">
@@ -95,6 +110,9 @@ function Header({ compact, view, setView }: { compact: boolean; view: View; setV
             </TabBtn>
             <TabBtn active={view === 'report'} onClick={() => setView('report')} icon={<Table2 size={14} />}>
               Звіт
+            </TabBtn>
+            <TabBtn active={view === 'excel'} onClick={() => setView('excel')} icon={<FileDown size={14} />}>
+              Excel звіт
             </TabBtn>
           </nav>
         )}

@@ -7,7 +7,8 @@ interface DataStore {
   filters: Filters
   loaded: boolean
   fileName: string | null
-  setRows: (rows: FeedbackRow[], fileName?: string) => void
+  rawBuffer: ArrayBuffer | null   // оригінальний файл — для генерації Excel-звіту
+  setRows: (rows: FeedbackRow[], fileName?: string, rawBuffer?: ArrayBuffer) => void
   setFilters: (patch: Partial<Filters>) => void
   resetFilters: () => void
 }
@@ -33,8 +34,9 @@ export const useStore = create<DataStore>((set) => ({
   rows: [],
   loaded: false,
   fileName: null,
+  rawBuffer: null,
   filters: initialFilters,
-  setRows: (rows, fileName) => {
+  setRows: (rows, fileName, rawBuffer) => {
     const dates = rows.map(r => r.date.getTime())
     const min = dates.length ? new Date(Math.min(...dates)) : null
     const max = dates.length ? new Date(Math.max(...dates)) : null
@@ -42,6 +44,7 @@ export const useStore = create<DataStore>((set) => ({
       rows,
       loaded: rows.length > 0,
       fileName: fileName ?? null,
+      rawBuffer: rawBuffer ?? null,
       filters: { ...initialFilters, dateFrom: min, dateTo: max }
     })
   },

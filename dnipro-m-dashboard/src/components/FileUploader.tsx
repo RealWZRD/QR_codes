@@ -14,11 +14,11 @@ export default function FileUploader({ compact = false }: { compact?: boolean })
     setBusy(true); setErr(null)
     try {
       const buf = await files[0].arrayBuffer()
-      const rows = await parseFeedbackXlsx(buf)
+      const rows = await parseFeedbackXlsx(buf.slice(0))
       if (rows.length === 0) {
         setErr('Не вдалося знайти жодного рядка з валідною датою у файлі.')
       } else {
-        setRows(rows, files[0].name)
+        setRows(rows, files[0].name, buf)
       }
     } catch (e: any) {
       setErr(`Помилка обробки файлу: ${e?.message ?? 'невідома'}`)
